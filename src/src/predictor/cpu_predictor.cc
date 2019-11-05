@@ -161,6 +161,10 @@ class CPUPredictor : public Predictor {
 
     this->InitOutPredictions(dmat->Info(), out_preds, model);
 
+    if (static_cast<int>(ntree_limit) < 0) {
+        ntree_limit = -static_cast<int>(ntree_limit);
+        tree_begin = ntree_limit - 1;
+    }
     ntree_limit *= model.param.num_output_group;
     if (ntree_limit == 0 || ntree_limit > model.trees.size()) {
       ntree_limit = static_cast<unsigned>(model.trees.size());
@@ -203,6 +207,12 @@ class CPUPredictor : public Predictor {
       thread_temp.resize(1, RegTree::FVec());
       thread_temp[0].Init(model.param.num_feature);
     }
+
+    unsigned tree_begin = 0;
+    if (static_cast<int>(ntree_limit) < 0) {
+        ntree_limit = -static_cast<int>(ntree_limit);
+        tree_begin = ntree_limit - 1;
+    }
     ntree_limit *= model.param.num_output_group;
     if (ntree_limit == 0 || ntree_limit > model.trees.size()) {
       ntree_limit = static_cast<unsigned>(model.trees.size());
@@ -213,7 +223,7 @@ class CPUPredictor : public Predictor {
     for (int gid = 0; gid < model.param.num_output_group; ++gid) {
       (*out_preds)[gid] =
           PredValue(inst, model.trees, model.tree_info, gid, root_index,
-                    &thread_temp[0], 0, ntree_limit) +
+                    &thread_temp[0], tree_begin, ntree_limit) +
           model.base_margin;
     }
   }
@@ -223,6 +233,11 @@ class CPUPredictor : public Predictor {
     InitThreadTemp(nthread, model.param.num_feature);
     const MetaInfo& info = p_fmat->Info();
     // number of valid trees
+    unsigned tree_begin = 0;
+    if (static_cast<int>(ntree_limit) < 0) {
+        ntree_limit = -static_cast<int>(ntree_limit);
+        tree_begin = ntree_limit - 1;
+    }
     ntree_limit *= model.param.num_output_group;
     if (ntree_limit == 0 || ntree_limit > model.trees.size()) {
       ntree_limit = static_cast<unsigned>(model.trees.size());
@@ -239,7 +254,7 @@ class CPUPredictor : public Predictor {
         auto ridx = static_cast<size_t>(batch.base_rowid + i);
         RegTree::FVec& feats = thread_temp[tid];
         feats.Fill(batch[i]);
-        for (unsigned j = 0; j < ntree_limit; ++j) {
+        for (unsigned j = tree_begin; j < ntree_limit; ++j) {
           int tid = model.trees[j]->GetLeafIndex(feats, info.GetRoot(ridx));
           preds[ridx * ntree_limit + j] = static_cast<bst_float>(tid);
         }
@@ -257,6 +272,11 @@ class CPUPredictor : public Predictor {
     InitThreadTemp(nthread,  model.param.num_feature);
     const MetaInfo& info = p_fmat->Info();
     // number of valid trees
+    unsigned tree_begin = 0;
+    if (static_cast<int>(ntree_limit) < 0) {
+        ntree_limit = -static_cast<int>(ntree_limit);
+        tree_begin = ntree_limit - 1;
+    }
     ntree_limit *= model.param.num_output_group;
     if (ntree_limit == 0 || ntree_limit > model.trees.size()) {
       ntree_limit = static_cast<unsigned>(model.trees.size());
@@ -271,7 +291,7 @@ class CPUPredictor : public Predictor {
     std::fill(contribs.begin(), contribs.end(), 0);
     // initialize tree node mean values
     #pragma omp parallel for schedule(static)
-    for (bst_omp_uint i = 0; i < ntree_limit; ++i) {
+    for (bst_omp_uint i = tree_begin; i < ntree_limit; ++i) {
       model.trees[i]->FillNodeMeanValues();
     }
     const std::vector<bst_float>& base_margin = info.base_margin_.HostVector();
@@ -290,7 +310,7 @@ class CPUPredictor : public Predictor {
               &contribs[(row_idx * ngroup + gid) * ncolumns];
           feats.Fill(batch[i]);
           // calculate contributions
-          for (unsigned j = 0; j < ntree_limit; ++j) {
+          for (unsigned j = tree_begin; j < ntree_limit; ++j) {
             if (model.tree_info[j] != gid) {
               continue;
             }

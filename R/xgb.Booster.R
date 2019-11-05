@@ -299,8 +299,6 @@ predict.xgb.Booster <- function(object, newdata, missing = NA, outputmargin = FA
     ntreelimit <- NVL(object$best_ntreelimit, 0)
   if (NVL(object$params[['booster']], '') == 'gblinear')
     ntreelimit <- 0
-  if (ntreelimit < 0)
-    stop("ntreelimit cannot be negative")
 
   option <- 0L + 1L * as.logical(outputmargin) + 2L * as.logical(predleaf) + 4L * as.logical(predcontrib) +
     8L * as.logical(approxcontrib) + 16L * as.logical(predinteraction)
